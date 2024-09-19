@@ -17,7 +17,7 @@ clean:
 	- rm *.bpf.o
 	- rm -f /sys/fs/bpf/pingpong 
 
-up: load attach
+up: load list attach watch
 
 down: detach unload
 

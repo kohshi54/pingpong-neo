@@ -13,22 +13,26 @@
 #define ICMP_REPLY 0
 //#define IP_CSUM_OFF (ETH_HLEN + offsetof(struct iphdr, check))
 
-static __always_inline __u16 csum_fold_helper(__u32 csum)
-{
+static __always_inline __u16 csum_fold_helper(__u32 csum) {
 	__u32 sum;
 	sum = (csum >> 16) + (csum & 0xffff);
 	sum += (sum >> 16);
 	return ~sum;
 }
 
-static __always_inline __u16 icmp_checksum_diff(
-		__u16 seed,
-		struct icmphdr *icmphdr_new,
-		struct icmphdr *icmphdr_old)
-{
-	__u32 csum, size = sizeof(struct icmphdr);
+static __always_inline __u16 icmp_checksum_diff(struct icmphdr *icmphdr_old, struct icmphdr *icmphdr_new, __u16 seed) {
+	__u32 csum;
+    __u32 size = sizeof(struct icmphdr);
 
 	csum = bpf_csum_diff((__be32 *)icmphdr_old, size, (__be32 *)icmphdr_new, size, seed);
+	return csum_fold_helper(csum);
+}
+
+static __always_inline __u16 ip_checksum_diff(struct iphdr *iphdr_old, struct iphdr *iphdr_new, __u16 seed) {
+	__u32 csum;
+    __u32 size = sizeof(struct iphdr);
+
+	csum = bpf_csum_diff((__be32 *)iphdr_old, size, (__be32 *)iphdr_new, size, seed);
 	return csum_fold_helper(csum);
 }
 
@@ -66,22 +70,26 @@ int xdp_pingpong(struct xdp_md *ctx)
     __be32 dst_ip = ip->daddr;
     ip->saddr = dst_ip;
     ip->daddr = src_ip;
-    //csum = bpf_csum_diff(&src_ip, 4, &ip->saddr, 4, csum); // src/dst is both 32 bit, so aligned with 16 bit, so sum stays the same, and no need to recalculate.
-    //csum = bpf_csum_diff(&dst_ip, 4, &ip->daddr, 4, csum);
 
 	//uint8_t old_ttl = ip->ttl;
 	//ip->ttl = 125;
 	//csum_replace2(&ip->check, old_ttl, ip->ttl);
 
-/* update l4 (icmp type and csum)*/
+    __u16 old_check = ip->check;
+    ip->check = 0;
+    struct iphdr iphdr_old = *ip;
+    ip->ttl = 125;
+    ip->check = ip_checksum_diff(&iphdr_old, ip, ~old_check);
+
+/* update l4 (icmp type and csum) */
     //csum_replace2(&icmp->checksum, ICMP_REQUEST, ICMP_REPLY);
 
     __u16 old_csum = icmp->checksum;
     icmp->checksum = 0;
     struct icmphdr icmphdr_old = *icmp;
     icmp->type = ICMP_REPLY;
-    icmp->checksum = icmp_checksum_diff(~old_csum, icmp, &icmphdr_old);
-
+    icmp->checksum = icmp_checksum_diff(&icmphdr_old, icmp, ~old_csum);
+    
     return XDP_TX;
 }
 
