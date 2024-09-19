@@ -16,6 +16,7 @@ $(TARGETS): %: %.bpf.o
 clean: 
 	- rm *.bpf.o
 	- rm -f /sys/fs/bpf/pingpong 
+	- rm -f pingpong_user
 
 up: load list attach watch
 
@@ -41,4 +42,7 @@ unload::
 
 list:
 	sudo bpftool prog show name xdp_pingpong
+
+user:
+	gcc -O2 -g -Wall -I/usr/include -o pingpong_user pingpong_user.c -lbpf -lelf -lz
 
