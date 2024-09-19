@@ -1,4 +1,5 @@
 TARGETS = pingpong
+DEV=enp6s18
 
 all: $(TARGETS)
 .PHONY: all
@@ -16,20 +17,24 @@ clean:
 	- rm *.bpf.o
 	- rm -f /sys/fs/bpf/pingpong 
 
+up: load attach
+
+down: detach unload
+
 load: 
 	sudo bpftool prog load pingpong.bpf.o /sys/fs/bpf/pingpong
 
 attach:
-	sudo bpftool net attach xdp id 5671 dev enp6s18
-	#@ID=$$(sudo bpftool prog show name xdp_pingpong | grep xdp_pingpong | awk '{print $$1}' | sed 's/://') && \
-	#echo $$ID && \
-	#sudo bpftool net attach xdp id $$ID dev lo
+	#sudo bpftool net attach xdp id 5707 dev enp6s18 #id changes on every load
+	ID=$$(sudo bpftool prog show name xdp_pingpong | grep xdp_pingpong | awk '{print $$1}' | sed 's/://') && \
+	echo $$ID && \
+	sudo bpftool net attach xdp id $$ID dev $(DEV)
 
 watch:
 	sudo cat /sys/kernel/debug/tracing/trace_pipe
 
 detach:
-	sudo bpftool net detach xdp dev enp6s18
+	sudo bpftool net detach xdp dev $(DEV)
 
 unload::
 	sudo rm -f /sys/fs/bpf/pingpong
