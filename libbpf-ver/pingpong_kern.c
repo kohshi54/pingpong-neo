@@ -13,6 +13,13 @@
 #define ICMP_REPLY 0
 //#define IP_CSUM_OFF (ETH_HLEN + offsetof(struct iphdr, check))
 
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, __be32);
+	__type(value, int);
+	__uint(max_entries, 2);
+} rcv_ipcnt SEC(".maps");
+
 static __always_inline __u16 csum_fold_helper(__u32 csum) {
 	__u32 sum;
 	sum = (csum >> 16) + (csum & 0xffff);
@@ -68,6 +75,15 @@ int xdp_pingpong(struct xdp_md *ctx)
 /* swap l3 */
     __be32 src_ip = ip->saddr;
     __be32 dst_ip = ip->daddr;
+	int *a = bpf_map_lookup_elem(&rcv_ipcnt, &src_ip);
+	if (a) {
+		int tmp = *a + 1;
+		bpf_map_update_elem(&rcv_ipcnt, &src_ip, &tmp, BPF_EXIST);
+	} else {
+		int tmp = 1;
+		bpf_map_update_elem(&rcv_ipcnt, &src_ip, &tmp, BPF_NOEXIST);
+		//bpf_map_update_elem(&rcv_ipcnt, &src_ip, &tmp, BPF_ANY);
+	}
     ip->saddr = dst_ip;
     ip->daddr = src_ip;
 
