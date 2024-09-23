@@ -8,6 +8,7 @@
 #include <bpf/libbpf.h>
 //#include <linux/if_link.h>
 #include <signal.h>
+#include <arpa/inet.h>
 
 static volatile int stopflg = 0;
 
@@ -60,19 +61,21 @@ int main(int argc, char **argv) {
 				err = bpf_map_get_next_key(map_fd, NULL, &cur_key);
 			else
 				err = bpf_map_get_next_key(map_fd, &prev_key, &cur_key);
-			if (err) {
+			if (err)
 				break;
-			}
+
 			int value = 0;
-			//int a = bpf_map_lookup_elem(map_fd, &cur_key, &value);
-			write(2, &cur_key, sizeof(int));
 			int a = bpf_map_lookup_elem(map_fd, &cur_key, &value);
 			if (a == 0) {
-				write(2, &value, sizeof(int));
-				write(2, "\n", 1);
+				long b = htonl(cur_key);
+				int c = (b >> 24) & 0xFF;
+				int d = (b >> 16) & 0xFF;
+				int e = (b >> 8) & 0xFF;
+				int f = b & 0xFF;
+				printf("%d.%d.%d.%d=%d\n", c, d, e, f, value);
 			}
 			prev_key = cur_key;
-			write(2, "--\n", 3);
+			//write(2, "--\n", 3);
 		}
 		sleep(1);
 	}
