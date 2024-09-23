@@ -43,6 +43,9 @@ unload::
 list:
 	sudo bpftool prog show name xdp_pingpong
 
-user:
+user: pingpong.bpf.o pingpong_user
+	sudo ./pingpong_user
+
+pingpong_user: pingpong_user.c pingpong.bpf.o
 	gcc -O2 -g -Wall -I/usr/include -o pingpong_user pingpong_user.c -lbpf -lelf -lz
 

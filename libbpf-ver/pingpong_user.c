@@ -18,18 +18,17 @@ static void	signal_handler(int signum, siginfo_t *info, void *context) {
 	}
 }
 
-void	set_sigaction(struct sigaction *act, void (*signal_handler) \
-						(int signum, siginfo_t *info, void *context))
-{
+void set_sigaction(struct sigaction *act, void (*signal_handler)(int signum, siginfo_t *info, void *context)) {
 	bzero(act, sizeof(*act));
 	sigemptyset(&(act->sa_mask));
 	sigaddset(&(act->sa_mask), SIGINT);
 	act->sa_flags = SA_SIGINFO;
 	act->sa_sigaction = signal_handler;
-	sigaction(SIGINT, act, NULL) == -1;
+	sigaction(SIGINT, act, NULL);
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv)
+{
     int ifindex;
     struct bpf_object *obj;
     struct bpf_program *prog;
@@ -48,14 +47,22 @@ int main(int argc, char **argv) {
 	set_sigaction(&act, signal_handler);
 
 	struct bpf_map *map = bpf_object__find_map_by_name(obj, "rcv_ipcnt");
-	if (!map) write(2, "no map\n", 7);
+	if (!map) {
+		write(2, "no map\n", 7);
+		goto cleanup;	
+	}
 	int map_fd = bpf_map__fd(map);
-	if (map_fd < 0) write(2, "no map fd\n", 10);
-	while (!stopflg) {
+	if (map_fd < 0) {
+		write(2, "no map fd\n", 10);
+		goto cleanup;	
+	}
+	while (!stopflg)
+	{
 		int prev_key = -1;
 		int cur_key = 0;
 		write(2, "=====\n", 6);
-		while (1) {
+		while (1)
+		{
 			int err;
 			if (prev_key == -1)	
 				err = bpf_map_get_next_key(map_fd, NULL, &cur_key);
