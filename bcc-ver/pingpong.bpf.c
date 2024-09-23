@@ -10,6 +10,8 @@
 #define ICMP_REPLY 0
 //#define IP_CSUM_OFF (ETH_HLEN + offsetof(struct iphdr, check))
 
+BPF_HASH(ip_count, u32, u32);
+
 int xdp_pingpong(struct xdp_md *ctx)
 {
     void *data_end = (void *)(long)ctx->data_end;  
@@ -41,6 +43,12 @@ int xdp_pingpong(struct xdp_md *ctx)
 /* swap l3 */
     __be32 src_ip = ip->saddr;
     __be32 dst_ip = ip->daddr;
+	u32 zero = 0;
+	u32 *count = ip_count.lookup_or_try_init(&src_ip, &zero);
+	if (count) {
+		(*count)++;	
+		ip_count.update(&src_ip, count);
+	}
     ip->saddr = dst_ip;
     ip->daddr = src_ip;
     //csum = bpf_csum_diff(&src_ip, 4, &ip->saddr, 4, csum); // src/dst is both 32 bit, so aligned with 16 bit, so sum stays the same, and no need to recalculate.
